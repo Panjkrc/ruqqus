@@ -38,6 +38,7 @@ def mfa_qr(secret, v):
     return send_file(mem, mimetype="image/png", as_attachment=False)
 
 @app.route("/api/is_available/<name>", methods=["GET"])
+@app.route("/api/v1/is_available/<name>", methods=["GET"])
 def api_is_available(name):
     if get_user(name, graceful=True):
         return jsonify({name:False})
@@ -209,6 +210,7 @@ def u_username_comments(username, v=None):
             }
 
 @app.route("/api/follow/<username>", methods=["POST"])
+@app.route("/api/v1/follow/<username>", methods=["POST"])
 @auth_required
 def follow_user(username, v):
 
@@ -250,6 +252,7 @@ def unfollow_user(username, v):
 
 
 @app.route("/api/agree_tos", methods=["POST"])
+@app.route("/api/v1/agree_tos", methods=["POST"])
 @auth_required
 def api_agree_tos(v):
 
