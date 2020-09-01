@@ -121,6 +121,7 @@ def edit_post(pid, v):
     return redirect(p.permalink)
 
 @app.route("/api/submit/title", methods=['GET'])
+@app.route("/api/v1/submit/title", methods=['GET'])
 @limiter.limit("3/minute")
 @is_not_banned
 #@tos_agreed
@@ -616,6 +617,7 @@ def embed_post_pid(pid):
     return render_template("embeds/submission.html", p=post)
 
 @app.route("/api/toggle_post_nsfw/<pid>", methods=["POST"])
+@app.route("/api/v1/toggle_post_nsfw/<pid>", methods=["POST"])
 @is_not_banned
 @validate_formkey
 def toggle_post_nsfw(pid, v):
@@ -635,6 +637,7 @@ def toggle_post_nsfw(pid, v):
     return "", 204
 
 @app.route("/api/toggle_post_nsfl/<pid>", methods=["POST"])
+@app.route("/api/v1/toggle_post_nsfl/<pid>", methods=["POST"])
 @is_not_banned
 @validate_formkey
 def toggle_post_nsfl(pid, v):
