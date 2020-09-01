@@ -41,7 +41,7 @@
     {{ b.description_html | safe }}
 
     <div class="text-small font-weight-bold text-muted text-uppercase mb-1" style="letter-spacing: 0.025rem;">Founded</div>
-    <p>{{ b.created_date }}</p>      
+    <p>{{ b.created_date }}</p>
     <div class="text-small font-weight-bold text-muted text-uppercase mb-2" style="letter-spacing: 0.025rem;">Guildmasters</div>
     <div class="d-flex align-items-center">
       {% for mod in b.mods_list[0:3] %}
@@ -59,6 +59,15 @@
       <small class="text-muted">No guildmasters</small>
       {% endfor %}
     </div>
+    {% if b.show_settings_icons %}
+    <div class="text-small font-weight-bold text-muted text-uppercase mb-2 mt-3" style="letter-spacing: 0.025rem;">Settings</div>
+    <div class="text-primary">
+      {% if b.is_private %}<i class="fas fa-eye-slash"data-toggle="tooltip" data-placement="bottom" title="Private mode."></i>{% endif %}
+      {% if b.restricted_posting %}<i class="fas fa-user-lock"data-toggle="tooltip" data-placement="bottom" title="Restricted posting mode."></i>{% endif %}
+      {% if b.over_18 %}<i class="fas fa-eye-evil"data-toggle="tooltip" data-placement="bottom" title="NSFW"></i>{% endif %}
+      {% if b.all_opt_out %}<span class="fa-stack" data-toggle="tooltip" data-placement="bottom" title="Opted out of All/Trending"><i class="fad fa-list fa-stack-1x"></i><i class="fas fa-times fa-stack-1x"></i></span>{% endif %}        
+    </div>
+    {% endif %}
   </div>
 </div>
 
@@ -180,16 +189,20 @@
           <a href="{{ b.permalink }}"><img src="{{ b.profile_url }}" class="profile-pic-35 mr-2"></a>
         </div>
         <div>
-          <a href="{{ b.permalink }}"><span class="h6 text-black mb-0">+{{ b.name }}</span>
+          <a href="{{ b.permalink }}">
+          <span class="h6 text-black mb-0">+{{ b.name }}
+            {% if v and v.has_blocked_guild(b) %}
+            <i class="fas fa-eye-slash text-danger align-middle ml-2" data-toggle="tooltip" data-placement="bottom" data-html="true" title="You have hidden this guild from /all. Visit your settings or click the <i class='far fa-ellipsis-h text-small'></i> icon to adjust its visibility."></i>
+            {% endif %}
+          </span>
             {% if b.over_18 %}
             <span class="badge badge-danger text-small ml-2" data-toggle="tooltip" data-placement="bottom" title="This guild contains adult content">nsfw</span>
             {% endif %}
             {% if b.is_nsfl %}
             <span class="badge badge-black text-small ml-2" data-toggle="tooltip" data-placement="bottom" title="This guild contains adult content">nsfl</span>
             {% endif %}
-            {% if b.restricted_posting or b.is_private %}
-            <span class="badge badge-warning text-small ml-2" data-toggle="tooltip" data-placement="bottom" title="This guild is private. Content posted prior to the guild being set to private is visible to everyone.">private</span>
-            {% endif %}
+            {% if b.is_private %}
+            <span class="badge badge-warning text-small ml-2" data-toggle="tooltip" data-placement="bottom" title="This guild is private. Content posted prior to the guild being set to private is visible to everyone.">private</span>{% endif %}
           </a>
         </div>
       </div>
@@ -203,7 +216,7 @@
         <div class="dropdown dropdown-actions">
           <a href="#" role="button" id="dropdownMoreLink" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="line-height: 0;
           ">
-          <i class="far fa-ellipsis-h text-lg text-muted"></i>
+          <i class="far fa-ellipsis-h text-base text-black"></i>
         </a>
         <div class="dropdown-menu border-0 shadow dropdown-menu-right mt-2" aria-labelledby="dropdownMoreLink" x-placement="bottom-end"
         style="position: absolute; will-change: transform; top: 0px; left: 0px; transform: translate3d(21px, 18px, 0px);">
@@ -212,9 +225,9 @@
         <a class="dropdown-item" href="{{ b.permalink }}/mod/settings"><i class="fas fa-cog"></i>Guild settings</a>
         {% endif %}
         {% if v and not v.has_blocked_guild(b) %}
-        <a class="dropdown-item" href="javscript:void(0)" onclick="post_toast('/settings/block_guild?board={{ b.name }}')"><i class="fas fa-filter"></i>Filter from /all</a>
+        <a class="dropdown-item text-danger" href="javascript:void(0)" onclick="post_toast('/settings/block_guild?board={{ b.name }}')"><i class="fas fa-eye-slash text-danger"></i>Hide from /all</a>
         {% elif v %}
-        <a class="dropdown-item" href="javscript:void(0)" onclick="post_toast('/settings/unblock_guild?board={{ b.name }}')"><i class="fas fa-filter"></i>Unfilter from /all</a>
+        <a class="dropdown-item" href="javascript:void(0)" onclick="post_toast('/settings/unblock_guild?board={{ b.name }}')"><i class="fas fa-eye"></i>Show in /all</a>
         {% endif %}
       </div>
     </div>
@@ -259,8 +272,8 @@
       </div>
 
       {% if v %}
-      <div id="button-sub" {% if b.has_subscriber(v) %}class="d-none"{% endif %}><a class="btn btn-primary" href="javascript:void(0)" onclick="post('/api/subscribe/{{ b.name }}', callback=toggleSub)">Join guild</a></div>
-      <div id="button-unsub" {% if not b.has_subscriber(v) %}class="d-none"{% endif %}><a class="btn btn-secondary" href="javascript:void(0)" onclick="post('/api/unsubscribe/{{ b.name }}', callback=toggleSub)">Leave</a></div>
+      <div id="button-sub" {% if b.has_subscriber(v) %}class="d-none"{% endif %}><a class="btn btn-primary" href="javascript:void(0)" onclick="post_toast('/api/subscribe/{{ b.name }}', callback=toggleSub)">Join guild</a></div>
+      <div id="button-unsub" {% if not b.has_subscriber(v) %}class="d-none"{% endif %}><a class="btn btn-secondary" href="javascript:void(0)" onclick="post_toast('/api/unsubscribe/{{ b.name }}', callback=toggleSub)">Leave</a></div>
       {% elif not v %}
       <a class="btn btn-primary" href="/signup">Join guild</a>
       {% endif %}
@@ -305,8 +318,8 @@
         <a class="btn btn-outline-secondary btn-block text-muted mb-2" href="{{ b.permalink }}/mod/settings">Guild settings</a>
         {% endif %}
         {% if v %}
-        <div id="button-sub-mobile" {% if is_subscribed %}class="d-none"{% endif %}><a class="btn btn-primary btn-block" href="javascript:void(0)" onclick="post('/api/subscribe/{{ b.name }}', callback=toggleSub)">Join guild</a></div>
-        <div id="button-unsub-mobile" {% if not is_subscribed %}class="d-none"{% endif %}><a class="btn btn-secondary btn-block" href="javascript:void(0)" onclick="post('/api/unsubscribe/{{ b.name }}', callback=toggleSub)">Leave</a></div>
+        <div id="button-sub-mobile" {% if is_subscribed %}class="d-none"{% endif %}><a class="btn btn-primary btn-block" href="javascript:void(0)" onclick="post_toast('/api/subscribe/{{ b.name }}', callback=toggleSub)">Join guild</a></div>
+        <div id="button-unsub-mobile" {% if not is_subscribed %}class="d-none"{% endif %}><a class="btn btn-secondary btn-block" href="javascript:void(0)" onclick="post_toast('/api/unsubscribe/{{ b.name }}', callback=toggleSub)">Leave</a></div>
         {% elif not v %}
         <a class="btn btn-primary btn-block" href="/signup">Join guild</a>
         {% endif %}

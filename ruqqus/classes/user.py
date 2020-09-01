@@ -24,6 +24,7 @@ from .mix_ins import *
 from .subscriptions import *
 from .userblock import *
 from .badges import *
+from .clients import *
 from ruqqus.__main__ import Base,cache
 
 
@@ -73,29 +74,29 @@ class User(Base, Stndrd, Age_times):
     unban_utc=Column(Integer, default=0)
     is_deleted=Column(Boolean, default=False)
     delete_reason=Column(String(500), default='')
+    filter_nsfw=Column(Boolean, default=False)
 
     patreon_id=Column(String(64), default=None)
     patreon_access_token=Column(String(128), default='')
     patreon_refresh_token=Column(String(128), default='')
     patreon_pledge_cents=Column(Integer, default=0)
     patreon_name=Column(String(64), default='')
-    
 
     moderates=relationship("ModRelationship", lazy="dynamic")
-    banned_from=relationship("BanRelationship", lazy="dynamic", primaryjoin="BanRelationship.user_id==User.id")
+    banned_from=relationship("BanRelationship", primaryjoin="BanRelationship.user_id==User.id")
     subscriptions=relationship("Subscription", lazy="dynamic")
     boards_created=relationship("Board", lazy="dynamic")
     contributes=relationship("ContributorRelationship", lazy="dynamic", primaryjoin="ContributorRelationship.user_id==User.id")
     board_blocks=relationship("BoardBlock", lazy="dynamic")
 
-    following=relationship("Follow", lazy="dynamic", primaryjoin="Follow.user_id==User.id")
-    followers=relationship("Follow", lazy="dynamic", primaryjoin="Follow.target_id==User.id")
+    following=relationship("Follow", primaryjoin="Follow.user_id==User.id")
+    followers=relationship("Follow", primaryjoin="Follow.target_id==User.id")
 
     blocking=relationship("UserBlock", lazy="dynamic", primaryjoin="User.id==UserBlock.user_id")
     blocked=relationship("UserBlock", lazy="dynamic", primaryjoin="User.id==UserBlock.target_id")
 
+    _applications = relationship("OauthApp", lazy="dynamic")
 
-    
     #properties defined as SQL server-side functions
     energy = deferred(Column(Integer, server_default=FetchedValue()))
     comment_energy = deferred(Column(Integer, server_default=FetchedValue()))
@@ -118,11 +119,11 @@ class User(Base, Stndrd, Age_times):
 
     def has_block(self, target):
 
-        return self.blocking.filter_by(target_id=target.id).first()
+        return g.db.query(UserBlock).filter_by(user_id=self.id, target_id=target.id).first()
 
     def is_blocked_by(self, user):
 
-        return self.blocked.filter_by(user_id=user.id).first()
+        return g.db.query(UserBlock).filter_by(user_id=user.id, target_id=self.id).first()
 
     def any_block_exists(self, other):
 
@@ -158,6 +159,7 @@ class User(Base, Stndrd, Age_times):
                                              stickied=False
                                              )
 
+
         if not self.over_18:
             posts=posts.filter_by(over_18=False)
 
@@ -177,7 +179,7 @@ class User(Base, Stndrd, Age_times):
                 )
             )
 
-        if not self.admin_level >=4:
+        if self.admin_level < 4:
             #admins can see everything
 
             m=g.db.query(ModRelationship.board_id).filter_by(user_id=self.id, invite_rescinded=False).subquery()
@@ -263,7 +265,7 @@ class User(Base, Stndrd, Age_times):
                 )
               )
         else:
-            submissions=submissions.filter_by(is_public=True)
+            submissions=submissions.filter(Submission.post_public==True)
 
         listing = [x[0] for x in submissions.order_by(Submission.created_utc.desc()).offset(25*(page-1)).limit(26)]
 
@@ -271,7 +273,7 @@ class User(Base, Stndrd, Age_times):
 
     @cache.memoize(300)
     def commentlisting(self, v=None, page=1):
-        comments=self.comments.filter(Comment.parent_submission is not None)
+        comments=self.comments.filter(Comment.parent_submission is not None).join(Comment.post)
 
         if not (v and v.over_18):
             comments=comments.filter_by(over_18=False)
@@ -282,7 +284,7 @@ class User(Base, Stndrd, Age_times):
         if v and not v.show_nsfl:
             comments=comments.filter_by(is_nsfl=False)
 
-        if not (v and (v.admin_level >=3)):
+        if (not v) or v.admin_level<3:
             comments=comments.filter_by(is_deleted=False)
             
         if not (v and (v.admin_level >=3 or v.id==self.id)):
@@ -306,7 +308,9 @@ class User(Base, Stndrd, Age_times):
                                m.c.board_id != None,
                                c.c.board_id !=None))
         else:
-            comments=comments.filter_by(is_public=True)
+            comments=comments.filter(Submission.post_public==True)
+
+        comments=comments.options(contains_eager(Comment.post))
 
         comments=comments.order_by(Comment.created_utc.desc())
         comments=comments.offset(25*(page-1)).limit(26)
@@ -316,6 +320,7 @@ class User(Base, Stndrd, Age_times):
         return listing
 
     @property
+    @lazy
     def mods_anything(self):
 
         return bool(self.moderates.filter_by(accepted=True).first())
@@ -324,7 +329,10 @@ class User(Base, Stndrd, Age_times):
     @property
     def boards_modded(self):
 
-        return [x.board for x in self.moderates.filter_by(accepted=True).all() if x and x.board and not x.board.is_banned]
+        z=[x.board for x in self.moderates if x and x.board and x.accepted and not x.board.is_banned]
+        z=sorted(z, key=lambda x: x.name)
+
+        return z
 
     @property
     @cache.memoize(timeout=3600) #1hr cache time for user rep
@@ -354,7 +362,7 @@ class User(Base, Stndrd, Age_times):
     @cache.memoize(timeout=60)
     def has_report_queue(self):
         board_ids=[x.board_id for x in self.moderates.filter_by(accepted=True).all()]
-        return bool(g.db.query(Submission).filter(Submission.board_id.in_(board_ids), Submission.mod_approved==0, Submission.report_count>=1, Submission.is_banned==False).first())
+        return bool(g.db.query(Submission).filter(Submission.board_id.in_(board_ids), Submission.mod_approved==0, Submission.is_banned==False).join(Submission.reports).first())
 
     @property
     def banned_by(self):
@@ -414,22 +422,22 @@ class User(Base, Stndrd, Age_times):
     def permalink(self):
         return self.url
 
-    @property
-    @lazy
-    def created_date(self):
-
-        return time.strftime("%d %B %Y", time.gmtime(self.created_utc))
-
     def __repr__(self):
         return f"<User(username={self.username})>"
 
 
     def notification_commentlisting(self, page=1, all_=False):
 
-        notifications=self.notifications.join(Notification.comment).options(contains_eager(Notification.comment)).filter(Comment.is_banned==False, Comment.is_deleted==False)
+        notifications=self.notifications.join(Notification.comment).filter(
+            Comment.is_banned==False, 
+            Comment.is_deleted==False)
 
         if not all_:
             notifications=notifications.filter(Notification.read==False)
+
+        notifications=notifications.options(
+            contains_eager(Notification.comment)
+            )
 
         notifications = notifications.order_by(Notification.id.desc()).offset(25*(page-1)).limit(26)
 
@@ -492,7 +500,7 @@ class User(Base, Stndrd, Age_times):
 
     def has_follower(self, user):
 
-        return self.followers.filter_by(user_id=user.id).first()
+        return g.db.query(Follow).filter_by(target_id=self.id, user_id=user.id).first()
 
     def set_profile(self, file):
 
@@ -561,7 +569,7 @@ class User(Base, Stndrd, Age_times):
 
     @property
     def can_make_guild(self):
-        return (self.true_score > 250 or self.created_utc <= 1592974538 and self.true_score > 50 or (self.patreon_pledge_cents and self.patreon_pledge_cents>=500)) and len(self.boards_modded) < 10
+        return (self.true_score >= 250 or self.created_utc <= 1592974538 and self.true_score >= 50 or (self.patreon_pledge_cents and self.patreon_pledge_cents>=500)) and len(self.boards_modded) < 10
     
     @property
     def can_join_gms(self):
@@ -620,7 +628,9 @@ class User(Base, Stndrd, Age_times):
                 'banner_url':self.banner_url,
                 'post_count':self.post_count,
                 'comment_count':self.comment_count,
-                'title':self.title.json if self.title else None
+                'title':self.title.json if self.title else None,
+                'bio':self.bio,
+                'bio_html':self.bio_html
                 }
 
     @property
@@ -716,3 +726,7 @@ class User(Base, Stndrd, Age_times):
                     g.db.delete(bad_badge)
 
         g.db.add(self)
+
+    @property
+    def applications(self):
+        return [x for x in self._applications.order_by(OauthApp.id.asc()).all()]

@@ -61,7 +61,7 @@ def redditor_moment_redirect(username):
 @app.route("/@<username>", methods=["GET"])
 @app.route("/api/v1/user/<username>/listing", methods=["GET"])
 @auth_desired
-@api
+@api("read")
 def u_username(username, v=None):
     
     #username is unique so at most this returns one result. Otherwise 404
@@ -73,7 +73,7 @@ def u_username(username, v=None):
     #check for wrong cases
 
     if username != u.username:
-        return redirect(request.path.replace(username, u.username))
+        return redirect(u.url)
         
 
     if u.reserved:
@@ -90,7 +90,7 @@ def u_username(username, v=None):
                 'api': lambda:{"error":"That user is banned"}
                 }
 
-    if u.is_deleted and (not v or (v.id!=u.id and v.admin_level<3)):
+    if u.is_deleted and (not v or v.admin_level<3):
         return {'html': lambda:render_template("userpage_deleted.html",
                                                u=u,
                                                v=v),
@@ -140,11 +140,13 @@ def u_username(username, v=None):
                            page=page,
                            next_exists=next_exists,
                            is_following=(v and u.has_follower(v))),
-            'api': lambda:[x.json for x in listing]
+            'api': lambda:jsonify({"data":[x.json for x in listing]})
             }
 
 @app.route("/@<username>/comments", methods=["GET"])
+@app.route("/api/v1/user/<username>/comments", methods=["GET"])
 @auth_desired
+@api("read")
 def u_username_comments(username, v=None):
     
     #username is unique so at most this returns one result. Otherwise 404
@@ -164,13 +166,13 @@ def u_username_comments(username, v=None):
     if user.is_suspended and (not v or v.admin_level < 3):
         return render_template("userpage_banned.html", u=user, v=v)
 
-    if user.is_private and (not v or (v.id!=user.id and v.admin_level<3)):
-        return render_template("userpage_private.html", u=user, v=v)
-
-    if user.is_deleted and (not v or (v.id!=user.id and v.admin_level<3)):
+    if user.is_deleted and (not v or v.admin_level<3):
         return render_template("userpage_deleted.html",
                                                u=user,
                                                v=v)
+
+    if user.is_private and (not v or (v.id!=user.id and v.admin_level<3)):
+        return render_template("userpage_private.html", u=user, v=v)
 
     if user.is_blocking and (not v or v.admin_level<3):
         return render_template("userpage_blocking.html",
@@ -195,14 +197,16 @@ def u_username_comments(username, v=None):
 
     is_following=(v and user.has_follower(v))
     
-    return render_template("userpage_comments.html",
+    return {"html":lambda:render_template("userpage_comments.html",
                            u=user,
                            v=v,
                            listing=listing,
                            page=page,
                            next_exists=next_exists,
                            is_following=is_following,
-                           standalone=True)
+                           standalone=True),
+            "api":lambda:jsonify({"data":[c.json for c in listing]})
+            }
 
 @app.route("/api/follow/<username>", methods=["POST"])
 @auth_required

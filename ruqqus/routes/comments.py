@@ -1,6 +1,6 @@
 from urllib.parse import urlparse
 import mistletoe
-from sqlalchemy import func
+from sqlalchemy import func, literal
 from bs4 import BeautifulSoup
 
 from ruqqus.helpers.wrappers import *
@@ -31,7 +31,7 @@ def comment_cid(cid):
 @app.route("/post/<p_id>/<anything>/<c_id>", methods=["GET"])
 @app.route("/api/v1/post/<p_id>/comment/<c_id>", methods=["GET"])
 @auth_desired
-@api
+@api("read")
 def post_pid_comment_cid(p_id, c_id, anything=None, v=None):
 
     comment=get_comment(c_id, v=v)
@@ -90,16 +90,12 @@ def post_pid_comment_cid(p_id, c_id, anything=None, v=None):
     post._preloaded_comments=[comment]
 
     #context improver
-    context=min(int(request.args.get("context", 0)), 5)
+    context=min(int(request.args.get("context", 0)), 4)
+    comment_info=comment
     c=comment
     while context > 0 and not c.is_top_level:
 
-        parent=c.parent
-
-        if g.v:
-            parent._is_blocking=v.blocking.filter_by(target_id=parent.author_id).first()
-            parent._is_blocked=v.blocked.filter_by(user_id=parent.author_id).first()
-            parent._voted=g.db.query(CommentVote).filter_by(user_id=g.v.id, comment_id=parent.id).first()
+        parent=get_comment(c.parent_comment_id, v=v)
 
         post._preloaded_comments+=[parent]
 
@@ -111,8 +107,8 @@ def post_pid_comment_cid(p_id, c_id, anything=None, v=None):
     #children comments
     current_ids=[comment.id]
     for i in range(6-context):
-        if g.v:
-            votes=g.db.query(CommentVote).filter(CommentVote.user_id==g.v.id, CommentVote.comment_id.in_(current_ids)).subquery()
+        if v:
+            votes=g.db.query(CommentVote).filter(CommentVote.user_id==v.id).subquery()
 
             blocking=v.blocking.subquery()
             blocked=v.blocked.subquery()
@@ -163,6 +159,7 @@ def post_pid_comment_cid(p_id, c_id, anything=None, v=None):
                 comment._is_blocked=c[3] or 0
                 output.append(comment)
         else:
+
             comms=g.db.query(
                 Comment
                 ).options(
@@ -192,15 +189,17 @@ def post_pid_comment_cid(p_id, c_id, anything=None, v=None):
         current_ids=[x.id for x in output]
 
         
-    return {'html':lambda:post.rendered_page(v=g.v, comment=top_comment, comment_info=comment),
-            'api':lambda:c.json
+    return {'html':lambda:post.rendered_page(v=v, comment=top_comment, comment_info=comment_info),
+            'api':lambda:top_comment.json
             }
 
 @app.route("/api/comment", methods=["POST"])
+@app.route("/api/v1/comment", methods=["POST"])
 @limiter.limit("6/minute")
 @is_not_banned
 @tos_agreed
 @validate_formkey
+@api("create")
 def api_comment(v):
 
     parent_submission=base36decode(request.form.get("submission"))
@@ -233,10 +232,16 @@ def api_comment(v):
         parent=parent_post
         parent_comment_id=None
         level=1
+        if parent_fullname!=parent_post.fullname:
+            abort(400)
     elif parent_fullname.startswith("t3"):
         parent=get_comment(parent_id, v=v)
         parent_comment_id=parent.id
         level=parent.level+1
+        if parent.parent_submission!=parent_submission:
+            abort(400)
+    else:
+        abort(400)
 
     #check existing
     existing=g.db.query(Comment).join(CommentAux).filter(Comment.author_id==v.id,
@@ -270,11 +275,31 @@ def api_comment(v):
             break
         else:
             is_offensive=False
+
+    #check badlinks
+    soup=BeautifulSoup(body_html, features="html.parser")
+    links=[x['href'] for x in soup.find_all('a') if x.get('href')]
+
+    for link in links:
+        parse_link=urlparse(link)
+        check_url=ParseResult(scheme="https",
+                            netloc=parse_link.netloc,
+                            path=parse_link.path,
+                            params=parse_link.params,
+                            query=parse_link.query,
+                            fragment='')
+        check_url=urlunparse(check_url)
+
+
+        badlink=g.db.query(BadLink).filter(literal(check_url).contains(BadLink.link)).first()
+
+        if badlink:
+            return jsonify({"error":f"Remove the following link and try again: `{check_url}`. Reason: {badlink.reason_text}"}), 403
         
     #create comment
     c=Comment(author_id=v.id,
               parent_submission=parent_submission,
-              parent_fullname=parent_fullname,
+              parent_fullname=parent.fullname,
               parent_comment_id=parent_comment_id,
               level=level,
               over_18=post.over_18,
@@ -314,7 +339,8 @@ def api_comment(v):
         if user:
             if v.any_block_exists(user):
                 continue
-            notify_users.add(user.id)
+            if user.id != v.id:
+                notify_users.add(user.id)
 
 
     for x in notify_users:
@@ -337,20 +363,20 @@ def api_comment(v):
 
     #print(f"Content Event: @{v.username} comment {c.base36id}")
 
-    return jsonify({"html":render_template("comments.html",
+    return {"html":lambda:jsonify({"html":render_template("comments.html",
                                            v=v, 
                                            comments=[c], 
                                            render_replies=False,
                                            is_allowed_to_comment=True
-                                           )
-                    }
-    )
-
+                                           )}),
+            "api":lambda:c.json
+            }
+    
 
 @app.route("/edit_comment/<cid>", methods=["POST"])
 @is_not_banned
 @validate_formkey
-#@api
+@api("edit")
 def edit_comment(cid, v):
 
     c = get_comment(cid, v=v)
@@ -405,7 +431,7 @@ def edit_comment(cid, v):
 @app.route("/api/v1/delete/comment/<cid>", methods=["POST"])
 @auth_required
 @validate_formkey
-#@api
+@api("delete")
 def delete_comment(cid, v):
 
     c=g.db.query(Comment).filter_by(id=base36decode(cid)).first()
@@ -423,15 +449,15 @@ def delete_comment(cid, v):
 
     cache.delete_memoized(User.commentlisting, v)
 
-    return "", 204
+    return {"html":lambda:("", 204),
+        "api":lambda:("", 204)}
 
 
 
 @app.route("/embed/comment/<cid>", methods=["GET"])
 @app.route("/embed/post/<pid>/comment/<cid>", methods=["GET"])
-@app.route("/api/vi/embed/comment/<cid>", methods=["GET"])
-@app.route("/api/vi/embed/post/<pid>/comment/<cid>", methods=["GET"])
-@api
+@app.route("/api/v1/embed/comment/<cid>", methods=["GET"])
+@app.route("/api/v1/embed/post/<pid>/comment/<cid>", methods=["GET"])
 def embed_comment_cid(cid, pid=None):
 
     comment=get_comment(cid)
