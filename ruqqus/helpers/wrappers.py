@@ -380,7 +380,7 @@ def api(*scopes, no_ban=False):
                 # validate correct scopes for request
                 for scope in scopes:
                     if not client.__dict__.get(f"scope_{scope}"):
-                        return jsonify({"error": f"401 Not Authorized. Scope `{scope}` is required."}), 403
+                        return jsonify({"error": f"401 Not Authorized. Scope `{scope}` is required."}), 401
 
                 if (request.method == "POST" or no_ban) and client.user.is_suspended:
                     return jsonify({"error": f"403 Forbidden. The user account is suspended."}), 403
