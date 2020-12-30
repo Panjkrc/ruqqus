@@ -98,7 +98,7 @@ def u_username(username, v=None):
     if username != u.username:
         return redirect(request.path.replace(username, u.username))
 
-    if u.reserved:
+    if u.reserved and not u.tos_agreed_utc:
         return {'html': lambda: render_template("userpage_reserved.html",
                                                 u=u,
                                                 v=v),
