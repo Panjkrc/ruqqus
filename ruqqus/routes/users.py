@@ -102,7 +102,7 @@ def u_username(username, v=None):
         return {'html': lambda: render_template("userpage_reserved.html",
                                                 u=u,
                                                 v=v),
-                'api': lambda: {"error": "That user is banned"}
+                'api': lambda: {"error": f"That username is reserved for: {u.reserved}"}
                 }
 
     if u.is_suspended and (not v or v.admin_level < 3):
