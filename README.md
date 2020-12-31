@@ -56,11 +56,33 @@ Pull requests are welcome! For major changes, please open an issue to discuss wh
 
 As an open-source project, we are supported by the community. If you would like to support the development of Ruqqus, please consider [making a donation](https://ruqqus.com/help/donate) :)
 
-**BTC** - 16JFRF4sXQ9BvY3w73MD64yPUKehhUtste
+**BTC** - `16JFRF4sXQ9BvY3w73MD64yPUKehhUtste`
 
-**LTC** - LNDKsNhHjiNBJ6YBWtE8io8H1W3Fv5mtEd
+**LTC** - `LNDKsNhHjiNBJ6YBWtE8io8H1W3Fv5mtEd`
 
-**ETH** - 0x4301c31B81C2C66f5aaDFC1ec75861ad3d3cE0cC
+**ETH**/**ERC20** - `0x4301c31B81C2C66f5aaDFC1ec75861ad3d3cE0cC`
+
+**XMR** - `8BkNezPQex6eTanNQHswMmhCAqWkXzVNEDnvnBN1YSxmic87E2VZncNVDiS1TCjuUs4K34FiGVBK82AfkT2NYsxFN6cYTpy`
+
+**ZEC** - `t1VqHznyeQnS9hNaU32ksijfT9s9DTXgUSv`
+
+**BCH** - `qpcg2czl2fa8x43z807ta5kpuzd3g4suecuu9lmqug`
+
+**XRP** - `rBWWxvREbRPSqMGNqwpBVbSJMPkmLum5xR`
+
+**XLM** - `GBB4FE2UYMUPHCYYLZFT3WSAOSEKI7YIBSOLNEPU6GPWAU64OXOQOA3Q`
+
+**DASH** - `Xj5dmVJXVjCxuyKRhTmSJ6p1i3ehWLV9gT`
+
+**DOGE** - `DT9j54NhxcH3VTU1QeuWcifyaLayTPuv1U`
+
+**VTC** - `3Lq9vNtphMM3rtuzLhtNUjn5WhSk7ZMQYK`
+
+**PIVX** - `DSgD6hxu1EgRiULn6RNbnv5tRvij5BGtUa`
+
+
+
+
 
 ## Stay in touch
 
@@ -69,6 +91,21 @@ As an open-source project, we are supported by the community. If you would like 
 - [Twitch.tv](https://twitch.tv/captainmeta4)
 
 ## Local development
+
+### Docker (Any Platform)
+
+1. Run `docker-compose up` from the project root directory.
+2. Navigate to `localhost:8000` in your browser. Ruqqus should be running!
+3. You can now login with user `ruqqie`, password `password`!
+
+Viewing the database (`psql`):
+* `docker-compose run db psql postgres://postgres@db/postgres`
+
+You can also access the database with local tools via port `5433`. This can be useful for GUI tools such as DBeaver. For example, to connect with your local machine's `psql`:
+* `psql postgres://postgres@localhost:5433/posgres`
+
+If you make code changes and want to restart the local server:
+* `docker-compose restart web`
 
 ### [Mac](https://github.com/ruqqus/ruqqus/wiki/Mac-Installation)
 

@@ -385,7 +385,7 @@
         <a class="nav-link" href="{{ v.permalink }}"><i class="fas fa-user-circle fa-width-rem mr-3"></i>@{{ v.username }}</a>
       </li>
       <li class="nav-item">
-        <a class="nav-link {% if v.notifications_count %}position-relative{% endif %}" href="/notifications?all=true">
+        <a class="nav-link {% if v.notifications_count %}position-relative{% endif %}" href="/notifications{% if not v.notifications_count %}?all=true{% endif %}">
           <i class="fas fa-envelope fa-width-rem mr-3"></i>Inbox
           {% if v.notifications_count %}
           <i class="fas fa-circle text-danger position-absolute" style="left: 19px; top: 5px; font-size: 10px;"></i>
@@ -654,6 +654,7 @@
 {% include "gif_modal.html" %}
 {% include "delete_comment_modal.html" %}
 {% include "delete_post_modal.html" %}
+{% include "tip_modal.html" %}
 {% endif %}
 
 {% if v and v.mods_anything %}
