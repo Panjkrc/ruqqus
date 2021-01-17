@@ -1,11 +1,17 @@
-FROM python:3.7
+FROM heroku/heroku:18
 
-ENV PYTHONPATH=/root/ruqqus
-WORKDIR /root/ruqqus
+COPY supervisord.conf /etc/supervisord.conf
 
-COPY ./requirements.txt /tmp
-RUN pip install -r /tmp/requirements.txt
+RUN apt update \
+    && apt install -y python3.7 python3-pip supervisor
 
-CMD gunicorn ruqqus.__main__:app -b 0.0.0.0 -w 3 -k gevent --worker-connections 6 --preload --max-requests 5000 --max-requests-jitter 500
+RUN mkdir -p /opt/ruqqus/service
 
-COPY . /root/ruqqus
+COPY requirements.txt /opt/ruqqus/service/requirements.txt
+
+RUN cd /opt/ruqqus/service \
+    && pip3 install -r requirements.txt
+
+EXPOSE 8000/tcp
+
+CMD [ "/usr/bin/supervisord", "-c", "/etc/supervisord.conf" ]
