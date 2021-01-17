@@ -188,9 +188,9 @@
 	{% block stylesheets %}
 
 	{% if v and v.can_use_darkmode and session.get("dark_mode_enabled") %}
-	<link id="css-link" rel="stylesheet" href="/assets/style/main_dark.css?v=2.29.6.2">
+	<link id="css-link" rel="stylesheet" href="/assets/style/main_dark.css?v=2.29.9.9">
 	{% else %}
-	<link id="css-link" rel="stylesheet" href="/assets/style/main.css?v=2.29.6.2">
+	<link id="css-link" rel="stylesheet" href="/assets/style/main.css?v=2.29.9.9">
 	{% endif %}
 
 	{% endblock %}
@@ -208,20 +208,29 @@
      return '{{ v.formkey }}';
    }
  </script>
-
-
  {% endif %}
+
+ <script async defer data-domain="{{ 'SERVER_NAME' | app_config }}" src="https://plausible.ruqqus.com/js/plausible.js"></script>
 
 </head>
 
 <body id="{% block pagetype %}frontpage{% endblock %}" class="">
+
+{% if request.path=='/' and g.timestamp>session.get('tooltip_last_dismissed',0)+60*60*24 and (g.system.endswith('/chrome') or g.system.endswith('/other')) %}
+<div class="row fixed-top" style="z-index:2000" id="mobile-prompt-row">
+  <div id="mobile-prompt-container" class="ml-auto mr-5">
+    <div id="mobile-prompt" href="javascript:void(0)" data-toggle="tooltip" data-container="#mobile-prompt-row" data-placement="top" data-trigger="click" title="" data-original-title="Install the Ruqqus webapp by saving this page to your home screen!">
+    </div>
+  </div>
+</div>
+{% endif %}
 
 
   <!--Header -->
   <!-- Navigation -->
   <nav class="navbar navbar-expand-md navbar-light shadow shadow-md fixed-top" id="navbar">
     <div class="container-fluid">
-      <div class="flex-grow-1"><a href="/" class="navbar-brand">ruqqus<span class="text-small-extra text-uppercase text-gray-400"> Beta</span></a></div>
+      <div class="flex-grow-1"><a href="/" class="navbar-brand">{{ "SITE_NAME" | app_config }}<span class="text-small-extra text-uppercase text-gray-400"> Beta</span></a></div>
       <div class="flex-grow-1 d-fl d-none d-md-block">
         <form id="searchform" class="form-inline search flex-nowrap mx-0 mx-lg-auto" action="{% if b %}/+{{ b.name }}{% endif %}/search" method="get">
           <input class="form-control w-100" type="search" placeholder="Search posts{% if b %} in +{{ b.name }}{% else %}, +guilds, and @users{% endif %}" aria-label="Search posts{% if b %} in +{{ b.name }}{% else %}, +guilds, and @users{% endif %}" name="q">
@@ -320,24 +329,25 @@
           <div class="px-2">
             <a class="dropdown-item" href="{{ v.permalink }}"><i class="fas fa-user-circle fa-fw text-left mr-3"></i>My
               profile</a>
-              {% if v.notifications_count %}
+            {% if v.notifications_count %}
               <a class="dropdown-item" href="/notifications"><i class="fas fa-inbox fa-fw text-left mr-3"></i>Inbox<span
                 class="badge badge-danger rounded-circle align-top ml-1">{{ v.notifications_count }}</span></a>
-                {% else %}
-                <a class="dropdown-item" href="/notifications?all=true"><i class="fas fa-inbox fa-fw text-left mr-3"></i>Inbox</a>
-                {% endif %}
-                <a class="dropdown-item" href="/settings"><i class="fas fa-cog fa-fw text-left mr-3"></i>Settings</a>
+            {% else %}
+              <a class="dropdown-item" href="/notifications?all=true"><i class="fas fa-inbox fa-fw text-left mr-3"></i>Inbox</a>
+            {% endif %}
+            <a class="dropdown-item" href="/settings"><i class="fas fa-cog fa-fw text-left mr-3"></i>Settings</a>
+            <a class="dropdown-item d-lg-none" href="/categories"><i class="fas fa-shapes fa-fw text-left mr-3" id="dark-switch"></i>Categories</a>
 
-                {% block darkswitch %}
-                {% if v and v.can_use_darkmode and session.get("dark_mode_enabled")%}
+            {% block darkswitch %}
+              {% if v and v.can_use_darkmode and session.get("dark_mode_enabled")%}
                 <a class="dropdown-item" href="javascript:void(0)" onclick="switch_css()"><i class="fad fa-toggle-on fa-fw text-left mr-3" id="dark-switch"></i>Dark mode</a>
-                {% elif v and v.can_use_darkmode %}
+              {% elif v and v.can_use_darkmode %}
                 <a class="dropdown-item" href="javascript:void(0)" onclick="switch_css()"><i class="fad fa-toggle-off fa-fw text-left mr-3" id="dark-switch"></i>Dark mode</a>
-                {% else %}
+              {% else %}
                 <a class="dropdown-item" href="/settings/profile#referral"><i class="fad fa-toggle-off fa-fw text-left mr-3"></i>Dark mode</a>
-                {% endif %}
-                {% endblock %}
-              </div>
+              {% endif %}
+            {% endblock %}
+          </div>
               <hr class="my-2">
               <div class="px-2">
                 <button class="dropdown-item copy-link" data-clipboard-text="https://ruqqus.com/signup?ref={{ v.username }}"><i class="fad fa-user-friends fa-fw text-left mr-3"></i>Invite friends</button>
@@ -636,7 +646,7 @@
 
 {% include "bootstrap.html" %}
 
-<script src="/assets/js/all_js.js?v=2.29.6.2"></script>
+<script src="/assets/js/all_js.js?v=2.29.9.9"></script>
 
 <!-- ClipboardJS -->
 
@@ -660,6 +670,16 @@
 		console.log(e);
 	});
 </script>
+
+<!-- Mobile "install the app" tooltip -->
+
+
+{% if request.path=='/' and g.timestamp>session.get('tooltip_last_dismissed',0)+60*60*24 and (not g.system.endswith('/chrome') and not g.system.endswith('/other')) and not g.system.endswith('/webview') %}
+
+<div id="mobile-prompt-container" class="fixed-bottom">
+  <div id="mobile-prompt" href="javascript:void(0)" data-toggle="tooltip" data-container="#mobile-prompt-container" data-placement="top" data-trigger="click" title="Install the Ruqqus webapp by saving this page to your home screen!"></div>
+</div>
+{% endif %}
 
 </body>
 
