@@ -290,7 +290,7 @@ def submit_post(v):
                 "api": lambda: ({"error": "`url` or `body` parameter required."}, 400)
                 }
     # sanitize title
-    title = bleach.clean(title)
+    title = bleach.clean(title, tags=[])
 
     # Force https for submitted urls
 
@@ -310,7 +310,7 @@ def submit_post(v):
     dup = g.db.query(Submission).join(Submission.submission_aux).filter(
 
         Submission.author_id == v.id,
-        Submission.is_deleted == False,
+        Submission.deleted_utc == 0,
         Submission.board_id == board.id,
         SubmissionAux.title == title,
         SubmissionAux.url == url,
@@ -473,7 +473,8 @@ def submit_post(v):
               days=1)
 
         for alt in v.alts:
-            alt.ban(reason="Spamming.", days=1)
+            if not alt.is_suspended:
+                alt.ban(reason="Spamming.", days=1)
 
         for post in similar_posts + similar_urls:
             post.is_banned = True
@@ -601,7 +602,7 @@ def submit_post(v):
         repost = g.db.query(Submission).join(Submission.submission_aux).filter(
             SubmissionAux.url.ilike(url),
             Submission.board_id == board.id,
-            Submission.is_deleted == False,
+            Submission.deleted_utc == 0,
             Submission.is_banned == False
         ).order_by(
             Submission.id.asc()
@@ -780,7 +781,7 @@ def delete_post_pid(pid, v):
     if not post.author_id == v.id:
         abort(403)
 
-    post.is_deleted = True
+    post.deleted_utc = int(time.time())
     post.is_pinned = False
     post.stickied = False
 

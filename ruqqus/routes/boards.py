@@ -221,8 +221,9 @@ def board_name(name, v):
     if page == 1 and sort != "new" and not ignore_pinned:
         stickies = g.db.query(Submission.id).filter_by(board_id=board.id,
                                                        is_banned=False,
-                                                       is_deleted=False,
-                                                       is_pinned=True).order_by(Submission.id.asc()
+                                                       is_pinned=True,
+                                                       deleted_utc=0).order_by(Submission.id.asc()
+
                                                                                 ).limit(4)
         stickies = [x[0] for x in stickies]
         ids = stickies + ids
@@ -1024,6 +1025,7 @@ def board_about_appearance(boardname, board, v):
 
 
 @app.route("/+<boardname>/mod/mods", methods=["GET"])
+@app.route("/api/vue/+<boardname>/mod/mods",  methods=["GET"])
 @app.route("/api/v1/<boardname>/mod/mods", methods=["GET"])
 @auth_desired
 @api("read")
