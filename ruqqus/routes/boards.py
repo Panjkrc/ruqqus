@@ -1173,6 +1173,7 @@ def unsubscribe_board(boardname, v):
     return jsonify({"message": f"Left +{board.name}"}), 200
 
 
+@app.route("/mod/queue", methods=["GET"])
 @app.route("/+<boardname>/mod/queue", methods=["GET"])
 @auth_required
 @is_guildmaster("content")
@@ -1206,39 +1207,7 @@ def board_mod_queue(boardname, board, v):
                            b=board)
 
 
-@app.route("/mod/queue", methods=["GET"])
-@auth_required
-def all_mod_queue(v):
 
-    page = int(request.args.get("page", 1))
-
-    board_ids = [
-        x.id for x in v.boards_modded]
-
-    ids = g.db.query(Submission.id).options(lazyload('*')).filter(Submission.board_id.in_(board_ids),
-                                                                  Submission.mod_approved is None,
-                                                                  Submission.is_banned == False
-                                                                  ).join(Report, Report.post_id == Submission.id)
-
-    if not v.over_18:
-        ids = ids.filter(Submission.over_18 == False)
-
-    ids = ids.order_by(Submission.id.desc()).offset((page - 1) * 25).limit(26)
-
-    ids = [x for x in ids]
-
-    next_exists = (len(ids) == 26)
-
-    ids = ids[0:25]
-
-    posts = get_posts(ids, v=v)
-
-    return render_template("guild/reported_posts.html",
-                           listing=posts,
-                           next_exists=next_exists,
-                           page=page,
-                           v=v,
-                           b=None)
 
 
 @app.route("/mod/<bid>/images/profile", methods=["POST"])
